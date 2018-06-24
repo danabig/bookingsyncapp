@@ -14,8 +14,18 @@ def get_rental_by_name(rentals, name):
             return rental
 
 
+def updateLocalData(booking_sync_api, result_data):
+    pdb.set_trace()
+    res = booking_sync_api.rentals_store.list_json()
+    result_data['rentals'] = res['rentals']
+    for rental_name in TEST_RENTAL_NAMES:
+        test_rental = get_rental_by_name(result_data['rentals'], rental_name)
+        print test_rental['name']
+        # ensure_rental_entity_with_nightly_rates_managed_externally(booking_sync_api, test_rental, True)
+    print 'data fetch completed successfully'
+
+
 def ensure_rental_entity_with_nightly_rates_managed_externally(booking_sync_api, rental, allow_manage):
-    assert rental['name'] in TEST_RENTAL_NAMES
 
     _rental = copy.deepcopy(rental)
     rental_entity = Rental(_rental['id'])

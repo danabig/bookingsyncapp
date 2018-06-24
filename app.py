@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 
 from bookingsynclord.tools.CredentialManager import CredentialManager
 from utils import get_rental_by_name, ensure_rental_entity_with_nightly_rates_managed_externally, \
-    updateNightlyRates, load_csv_data
+    updateNightlyRates, load_csv_data, updateLocalData
 
 app = Flask(__name__)
 app.secret_key = 'super secret key'
@@ -24,29 +24,47 @@ from bookingsynclord.constants import CLIENT_ID, ACCESS_TOKEN, CLIENT_SECRET, RE
 
 ALLOWED_EXTENSIONS = ['txt', 'csv']
 
-booking_sync_api = None#BookingSyncAPI(CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN, REFRESH_TOKEN)
+global_booking_sync_api = None #BookingSyncAPI(CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN, REFRESH_TOKEN)
 result_data = {} # need db in order to keep it, maybe use local storage
-bookings = []
-rentals = []
+# bookings = []
+# rentals = []
 
 
 class ReusableForm(Form):
     value = TextField('Value:', validators=[validators.required()])
+
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def updateLocalData():
-    res = booking_sync_api.rentals_store.list_json()
-    result_data['rentals'] = res['rentals']
-    rentals = result_data['rentals']
-    for rental_name in TEST_RENTAL_NAMES:
-        test_rental = get_rental_by_name(rentals, rental_name)
-        print test_rental['name']
-        ensure_rental_entity_with_nightly_rates_managed_externally(booking_sync_api, test_rental, True)
-    print 'data fetch completed successfully'
+@app.route("/authorize/", methods=['GET', 'POST'])
+def authorize():
+    global global_booking_sync_api
+    booking_sync_api = global_booking_sync_api
+    if request.method == 'POST':
+        form = ReusableForm(request.form)
+        client_id = request.form['client_id']
+        client_secret = request.form['client_secret']
+        client_code = request.form['client_code']
+        print client_id, client_secret, client_code
+        print '------------------------------------'
+        access_token, refresh_token = CredentialManager.generate_first_token(client_id,client_secret,client_code)
+        print access_token,refresh_token
+        if booking_sync_api is None:
+            booking_sync_api = BookingSyncAPI(client_id, client_secret, access_token, refresh_token)
+            global_booking_sync_api = booking_sync_api
+        else:
+            booking_sync_api.credential_manager.client_id = client_id
+            booking_sync_api.credential_manager.client_secret = client_secret
+            booking_sync_api.credential_manager.access_token = access_token
+            booking_sync_api.credential_manager.refresh_token = refresh_token
+        updateLocalData(booking_sync_api, result_data)
+        return redirect(url_for('file_upload'))
+    else:
+        return render_template('authorization.html', authorization_url=CredentialManager.generate_authorize_url('{client_id}'))
+
 
 
 @app.route('/uploads/<filename>')
@@ -57,6 +75,8 @@ def uploaded_file(filename):
 
 @app.route("/", methods=['GET', 'POST'])
 def submit():
+    global global_booking_sync_api
+    booking_sync_api = global_booking_sync_api
     print 'submit'
     form = ReusableForm(request.form)
 
@@ -76,13 +96,41 @@ def submit():
         result_data['rental'] = booking_sync_api.rentals_store.list_json(filters={ 'fields': value })
         print json.dumps(result_data)#, indent=4, sort_keys=True)
     else:
-        if booking_sync_api is None:
+        pdb.set_trace()
+        if booking_sync_api is None or booking_sync_api == {}:
             return redirect(url_for('authorize'))
 
-        if len(rentals) == 0 or len(bookings) == 0:
-            updateLocalData()
+        if len(result_data['rentals']) == 0 or len(result_data['bookings']) == 0:
+            updateLocalData(booking_sync_api, result_data)
 
     return render_template('search.html', form=form)
+
+
+@app.route("/enable_rentals/", methods=['GET', 'POST'])
+def enable_rentals():
+    global global_booking_sync_api
+    booking_sync_api = global_booking_sync_api
+    if request.method == 'POST':
+        form = ReusableForm(request.form)
+        rentals_to_enable = request.form['enable_rentals']
+        rentals_to_disable = request.form['disable_rentals']
+        enables = rentals_to_enable.split(',')
+        disables = rentals_to_disable.split(',')
+        for rental_name in enables:
+            pdb.set_trace()
+            rental = get_rental_by_name(result_data['rentals'], rental_name)
+            assert rental is not None
+            ensure_rental_entity_with_nightly_rates_managed_externally(booking_sync_api, rental, allow_manage=True)
+            print 'enable rental %s' % rental_name
+        for rental_name in disables:
+            rental = get_rental_by_name(result_data['rentals'], rental_name)
+            assert rental is not None
+            ensure_rental_entity_with_nightly_rates_managed_externally(booking_sync_api, rental, allow_manage=False)
+            print 'disable rental %s' % rental_name
+
+        return redirect(url_for('file_upload'))
+    else:
+        return render_template('rentals_enable.html')
 
 
 @app.route("/file_upload/", methods=['GET', 'POST'])
@@ -130,24 +178,6 @@ def ping():
 def hello(name):
     return render_template(
         'test.html', name=name)
-
-
-@app.route("/authorize/", methods=['GET', 'POST'])
-def authorize():
-    if request.method == 'POST':
-        form = ReusableForm(request.form)
-        client_id = request.form['client_id']
-        client_secret = request.form['client_secret']
-        client_code = request.form['client_code']
-        print client_id, client_secret, client_code
-        print '------------------------------------'
-        access_token, refresh_token = CredentialManager.generate_first_token(client_id,client_secret,client_code)
-        print access_token,refresh_token
-        booking_sync_api = BookingSyncAPI(client_id, client_secret, access_token, refresh_token)
-        updateLocalData()
-        return redirect(url_for('file_upload'))
-    else:
-        return render_template('authorization.html', authorization_url=CredentialManager.generate_authorize_url('{client_id}'))
 
 
 if __name__ == "__main__":
