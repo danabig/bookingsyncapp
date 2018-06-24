@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% block body %}
+ 
+<div class="block1">
+  <h1>Hello Mister!</h1>
+  <h2>Here is an interesting quote for you: </h2>
+  <a href='file_upload' style="{'cursor': pointer}"><input type=”button” value=”file_upload”></a>
+  <form action="" method="post">
+      {{ form.csrf }}
+
+      <div class="input text">
+          {{ form.value.label }} {{ form.value }}
+      </div>
+
+      <div class="input submit">
+          <input type="submit" value="Submit" />
+      </div>
+  </form>
+  <p>
+"The limits of my language are the limits of my mind. All I know is what I have words for."
+  </p>
+</div>
+{% endblock %}

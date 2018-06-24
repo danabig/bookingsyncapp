@@ -1,0 +1,13 @@
+<!doctype html>
+<title>Booking authorization</title>
+<h1>Authorize the app using this link (use your client id and keep the code you get):</h1>
+<span>{{ authorization_url }}</span>
+<form method=post enctype=multipart/form-data>
+  <h1>Enter your client ID:</h1>
+  <input type=text name=client_id>
+  <h1>Enter your client secret:</h1>
+  <input type=text name=client_secret>
+  <h1>Enter the authorization code:</h1>
+  <input type=text name=client_code>
+  <input type=submit value=authorize>
+</form>
