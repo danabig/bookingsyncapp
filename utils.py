@@ -3,7 +3,7 @@ import csv
 import json
 import pdb
 
-from bookingsynclord.constants import TEST_RENTAL_NAME, TEST_RENTAL_NAMES
+from bookingsynclord.constants import TEST_RENTAL_NAME, TEST_RENTAL_NAMES, RENTALS_CACHE, CACHE_TIMEOUT
 from bookingsynclord.entities.NightlyRateMap import NightlyRateMap
 from bookingsynclord.entities.Rental import Rental
 
@@ -14,13 +14,15 @@ def get_rental_by_name(rentals, name):
             return rental
 
 
-def updateLocalData(booking_sync_api, result_data):
-    pdb.set_trace()
-    res = booking_sync_api.rentals_store.list_json()
-    result_data['rentals'] = res['rentals']
-    for rental_name in TEST_RENTAL_NAMES:
-        test_rental = get_rental_by_name(result_data['rentals'], rental_name)
-        print test_rental['name']
+def updateLocalData(booking_sync_api, cache):
+    rentals = cache.get(RENTALS_CACHE)
+    if rentals is None:
+        res = booking_sync_api.rentals_store.list_json()
+        rentals = res['rentals']
+        cache.set(RENTALS_CACHE, rentals, timeout=CACHE_TIMEOUT)
+    # for rental_name in TEST_RENTAL_NAMES:
+    #     test_rental = get_rental_by_name(rentals, rental_name)
+    #     print test_rental['name']
         # ensure_rental_entity_with_nightly_rates_managed_externally(booking_sync_api, test_rental, True)
     print 'data fetch completed successfully'
 

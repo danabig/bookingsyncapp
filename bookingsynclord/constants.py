@@ -10,3 +10,7 @@ TEST_RENTAL_NAMES = ['bna.vand.403.202', 'bna.vand.403.350']
 REQUEST_TOKEN_URL = 'https://www.bookingsync.com/oauth/token'
 TEST_REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 REDIRECT_URI = TEST_REDIRECT_URI
+
+RENTALS_CACHE = 'rentals'
+CACHE_TIMEOUT = 60*60*2
+API_CACHE = 'api'
